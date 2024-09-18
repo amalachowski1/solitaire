@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Solitaire Game</title>
+    <style>
+        body {
+            background-color: green;
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+        }
+
+        /* New container to align game board and close-up area */
+        #game-container {
+            display: flex;
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        #game-board {
+            margin: 170px 0 20px 0;
+            width: 800px;
+            position: relative;
+        }
+
+        .pile,
+        .stock-pile,
+        .waste-pile,
+        .foundation {
+            position: absolute;
+            width: 80px;
+            min-height: 120px;
+        }
+
+        .pile {
+            /* Positions will be set dynamically */
+        }
+
+        .stock-pile,
+        .waste-pile {
+            width: 80px;
+            height: 120px;
+        }
+
+        .card {
+            width: 80px;
+            height: 120px;
+            position: absolute;
+            z-index: 0;
+            cursor: pointer;
+            border: 1px solid #fff;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+
+        .card.hidden {
+            background-color: #007700;
+            border-color: #007700;
+            cursor: pointer;
+        }
+
+        /* Hide the rank and suit for hidden cards */
+        .card.hidden .card-value {
+            display: none;
+        }
+
+        .foundation {
+            width: 80px;
+            height: 120px;
+            position: absolute;
+            border: 2px dashed #fff;
+            border-radius: 5px;
+            background-color: #007700;
+            margin: 0;
+        }
+
+        /* Remove placeholder styling when foundation has a card */
+        .foundation.has-card {
+            border: none;
+            background-color: transparent;
+        }
+
+        /* Style for the rank and suit in the upper-left corner */
+        .card-value {
+            position: absolute;
+            top: 0px;
+            left: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Adjusted styles for red and black cards */
+        .red-card .card-value {
+            color: red;
+        }
+
+        .black-card .card-value {
+            color: black;
+        }
+
+        /* Visual feedback during dragging */
+        .dragging {
+            opacity: 0.5;
+        }
+
+        /* Close-up area on the right */
+        #close-up-area {
+            width: 200px;
+            margin-top: 170px;
+            margin-left: 20px;
+        }
+
+        #enlarged-card {
+            width: 300px;
+            height: 450px;
+            position: relative;
+            display: none;
+            border: 1px solid #fff;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+
+        /* Card images on the game board */
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            /* Scale image to fit */
+        }
+
+        /* Enlarged card image */
+        .enlarged-card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Adjusted styles for card-value */
+        .card-value {
+            position: absolute;
+            top: 0px;
+            left: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        #enlarged-card .card-value {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        /* Small text for cards on the board */
+        .custom-text {
+            font-size: 8px;
+            text-align: center;
+            color: black; /* Adjust color as needed */
+        }
+
+        /* Larger text for enlarged card */
+        .custom-text.enlarged {
+            font-size: 26px;
+            text-align: center;
+            color: black; /* Adjust color as needed */
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Solitaire Game</h1>
+    <div id="game-container">
+        <div id="game-board">
+            <!-- Game board will be populated by JavaScript -->
+        </div>
+        <div id="close-up-area">
+            <!-- Enlarged card will be displayed here -->
+            <div id="enlarged-card"></div>
+        </div>
+    </div>
+    <script type="module" src="solitaire.js"></script>
+</body>
+
+</html>
