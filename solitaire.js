@@ -1,356 +1,854 @@
-<!DOCTYPE html>
-<html lang="en">
+import { assignCardContents, defaultContent, setCustomBackground } from './cardConfig.js';
 
-<head>
-    <meta charset="UTF-8">
-    <title>Solitaire Game</title>
-    <style>
-        body {
-            background-color: green;
-            font-family: Arial, sans-serif;
-            color: white;
-            text-align: center;
+setCustomBackground('https://www.carlsberg.com/static/dist/img/betterments/greener-green/frames-n-4/label_1.jpg');
+
+
+var viewportWidth = window.innerWidth;
+var viewportHeight = window.innerHeight;
+
+const suits = ['♠', '♥', '♦', '♣'];
+const ranks = [
+    'A', '2', '3', '4', '5', '6',
+    '7', '8', '9', '10', 'J', 'Q', 'K'
+];
+
+let deck = [];
+const rankOrder = {
+    'A': 1,
+    '2': 2,
+    '3': 3,
+    '4': 4,
+    '5': 5,
+    '6': 6,
+    '7': 7,
+    '8': 8,
+    '9': 9,
+    '10': 10,
+    'J': 11,
+    'Q': 12,
+    'K': 13
+};
+
+// Variables to store drag state
+let draggedCard = null;
+let draggedCards = [];
+let dragSourcePile = null;
+
+// Declare assignedContent in the global scope
+let assignedContent = {};
+
+// Create the deck
+function createDeck() {
+    deck = [];
+    for (let suit of suits) {
+        for (let rank of ranks) {
+            deck.push({ suit, rank });
+        }
+    }
+}
+
+// Shuffle the deck
+function shuffleDeck() {
+    for (let i = deck.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+}
+
+// Initialize the game
+function initGame() {
+    createDeck();
+    shuffleDeck();
+    assignedContent = assignCardContents(); // Assign contents to cards
+    dealCards();
+    setupEnlargedCardArea(); // Add this line
+}
+
+// Add this new function
+function setupEnlargedCardArea() {
+    const closeUpArea = document.getElementById('close-up-area');
+
+    // Create the instruction overlay if it doesn't exist
+    let instructionOverlay = document.getElementById('instruction-overlay');
+    if (!instructionOverlay) {
+        instructionOverlay = document.createElement('div');
+        instructionOverlay.id = 'instruction-overlay';
+        instructionOverlay.textContent = 'Click on any card for close-up';
+        closeUpArea.appendChild(instructionOverlay);
+    }
+
+    // Add this: Create the iframe for content
+    let contentFrame = document.getElementById('content-frame');
+    if (!contentFrame) {
+        contentFrame = document.createElement('iframe');
+        contentFrame.id = 'content-frame';
+        contentFrame.style.display = 'none';
+        contentFrame.style.width = '70%';
+        contentFrame.style.height = '84%';
+        contentFrame.style.border = 'none';
+        contentFrame.style.position = 'absolute';
+        contentFrame.style.left = '50%';
+        contentFrame.style.top = '50%';
+        contentFrame.style.transform = 'translate(-50%, -55%)';
+        contentFrame.style.zIndex = '0'; // Initially set to 0
+        closeUpArea.appendChild(contentFrame);
+    }
+}
+
+// Deal the cards to the tableau
+function dealCards() {
+    const gameBoard = document.getElementById('game-board');
+
+    // Clear the game board if restarting
+    gameBoard.innerHTML = '';
+
+    // Positioning constants
+    const pileWidth = viewportHeight * 0.12;
+    const pileHeight = viewportHeight * 0.18;
+    const pileSpacing = viewportWidth * 0.02; // Horizontal spacing between piles
+    const cardOverlap = viewportHeight * 0.03; // Vertical overlapping of cards
+
+    const topRowY = 0; // Y-coordinate for the top row (foundations and draw piles)
+    const bottomRowY = viewportHeight * 0.25; // Y-coordinate for the bottom row (tableau)
+
+    // Positions for stock and waste piles
+    const stockPileX = 0;
+    const wastePileX = stockPileX + pileWidth + pileSpacing;
+
+    // Position for foundation piles starts after waste pile
+    const foundationStartX = wastePileX + pileWidth + pileSpacing;
+
+    // Create stock and waste piles
+    const stockPile = document.createElement('div');
+    stockPile.className = 'stock-pile';
+    stockPile.style.left = stockPileX + 'px';
+    stockPile.style.top = topRowY + 'px';
+    gameBoard.appendChild(stockPile);
+
+    const wastePile = document.createElement('div');
+    wastePile.className = 'waste-pile';
+    wastePile.style.left = wastePileX + 'px';
+    wastePile.style.top = topRowY + 'px';
+    gameBoard.appendChild(wastePile);
+
+    // Create foundations
+    const foundations = [];
+    for (let i = 0; i < 4; i++) {
+        const foundation = document.createElement('div');
+        foundation.className = 'foundation';
+        foundation.style.left = (foundationStartX + i * (pileWidth + pileSpacing)) + 'px';
+        foundation.style.top = topRowY + 'px';
+        gameBoard.appendChild(foundation);
+        foundations.push(foundation);
+    }
+
+    // Calculate the starting x-coordinate for tableau piles
+    const tableauStartX = stockPileX;
+
+    // Create tableau piles
+    for (let i = 0; i < 7; i++) {
+        const pile = document.createElement('div');
+        pile.className = 'pile';
+        pile.style.left = (tableauStartX + i * (pileWidth + pileSpacing)) + 'px';
+        pile.style.top = bottomRowY + 'px';
+
+        for (let j = 0; j <= i; j++) {
+            const cardData = deck.pop();
+            const isFaceUp = j === i; // Only the top card is face-up
+            const zIndex = j; // Set z-index based on position in the pile
+            const card = createCardElement(cardData, isFaceUp, zIndex);
+
+            // Position cards within the pile
+            card.style.position = 'absolute';
+            card.style.top = (j * cardOverlap) + 'px'; // Use cardOverlap for vertical spacing
+
+            pile.appendChild(card);
         }
 
-        /* New container to align game board and close-up area */
-        #game-container {
-            display: flex;
-            justify-content: flex-start;
-            width: 100vw;
-            height: 100vh;
+        gameBoard.appendChild(pile);
+    }
+
+    // Add remaining cards to the stock
+    deck.forEach((cardData, index) => {
+        const zIndex = index; // Set z-index based on position
+        const card = createCardElement(cardData, false, zIndex, false); // Pass false to prevent adding click listener
+        card.style.position = 'absolute'; // Ensure absolute positioning
+        card.style.top = -index * 0.5 + 'px'; // Slight offset to show card edges
+        stockPile.appendChild(card);
+    });
+
+    // Add event listeners
+    stockPile.addEventListener('click', drawCard);
+
+    // Allow dropping on foundation and tableau piles
+    const piles = document.querySelectorAll('.pile, .foundation');
+    piles.forEach(pile => {
+        pile.addEventListener('dragover', handleDragOver);
+        pile.addEventListener('drop', handleDrop);
+    });
+}
+
+function createCardElement(cardData, isFaceUp = false, zIndex = 0, addClickListener = true) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.suit = cardData.suit;
+    card.dataset.rank = cardData.rank;
+    card.style.zIndex = zIndex;
+    card.draggable = isFaceUp;
+
+    // Assign color class based on suit
+    const suit = cardData.suit;
+    if (suit === '♥' || suit === '♦') {
+        card.classList.add('red-card');
+    } else {
+        card.classList.add('black-card');
+    }
+
+    // Get the content assigned to this card
+    const cardKey = cardData.rank + cardData.suit;
+    const content = assignedContent[cardKey] || defaultContent;
+
+    if (isFaceUp) {
+        // Add rank and suit overlays
+        const topLeftValue = document.createElement('div');
+        topLeftValue.className = 'card-corner top-left';
+        topLeftValue.textContent = cardData.rank + cardData.suit;
+        card.appendChild(topLeftValue);
+
+        const bottomRightValue = document.createElement('div');
+        bottomRightValue.className = 'card-corner bottom-right';
+        bottomRightValue.textContent = cardData.rank + cardData.suit;
+        card.appendChild(bottomRightValue);
+
+        // Add card images if available
+        if (content.images && content.images.length > 0) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'card-image-container';
+            content.images.forEach((image, index) => {
+                const img = document.createElement('img');
+                img.className = 'card-image';
+                img.src = image.src;
+                img.style.opacity = index === 0 ? 1 : 0;
+                imgContainer.appendChild(img);
+
+                // Preload the image
+                const preloadImg = new Image();
+                preloadImg.src = image.src;
+            });
+            card.appendChild(imgContainer);
+            startSlideshow(imgContainer, content.images, defaultContent.defaultSlideshowDuration, defaultContent.defaultTransition);
         }
 
-        #game-board {
-            margin: 2vh 0 2vh 0;
-            width: 60%;
-            position: relative;
+        // Add custom text with embedded link if available
+        if (content.text) {
+            const customText = document.createElement('div');
+            customText.className = 'custom-text';
+
+            if (content.link) {
+                const link = document.createElement('a');
+                link.href = content.link;
+                link.textContent = content.text;
+                link.addEventListener('click', handleLinkClick);
+                customText.appendChild(link);
+            } else {
+                customText.textContent = content.text;
+            }
+
+            // Apply custom text styles
+            const textStyle = { ...defaultContent.textStyle, ...content.textStyle };
+            Object.assign(customText.style, textStyle);
+
+            card.appendChild(customText);
+        }
+    } else {
+        card.classList.add('hidden');
+        card.draggable = false;
+    }
+
+    if (addClickListener) {
+        card.addEventListener('click', handleCardClick);
+    }
+
+    if (isFaceUp) {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    }
+
+    return card;
+}
+
+function startSlideshow(container, images, defaultDuration, defaultTransition) {
+    if (images.length <= 1) return; // Don't start slideshow for single image
+
+    // Clear any existing timeouts associated with this container
+    if (container.slideshowTimeouts) {
+        container.slideshowTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+    }
+    container.slideshowTimeouts = []; // Reset the array
+
+    let currentIndex = 0;
+    const imgElements = container.querySelectorAll('.card-image, .enlarged-card-image');
+
+    // Set up initial state
+    imgElements.forEach((img, index) => {
+        img.style.position = 'absolute';
+        img.style.top = '0';
+        img.style.left = '0';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.opacity = index === 0 ? '1' : '0';
+        img.style.zIndex = '1'; // Set all images to the same z-index
+    });
+
+    function transitionToNextImage() {
+        const currentImg = imgElements[currentIndex];
+        const nextIndex = (currentIndex + 1) % images.length;
+        const nextImg = imgElements[nextIndex];
+        const duration = images[currentIndex].duration || defaultDuration;
+        const transition = images[currentIndex].transition || defaultTransition;
+
+        // Fade in the next image
+        nextImg.style.transition = `opacity ${transition}ms`;
+        nextImg.style.opacity = '1';
+
+        // Fade out the current image
+        const delay = transition / 2;
+        const fadeOutTimeoutId = setTimeout(() => {
+            currentImg.style.transition = `opacity ${transition}ms`;
+            currentImg.style.opacity = '0';
+        }, delay);
+        container.slideshowTimeouts.push(fadeOutTimeoutId);
+
+        // After transition, reset states and move to next image
+        const nextTransitionTimeoutId = setTimeout(() => {
+            currentImg.style.transition = 'none';
+            nextImg.style.transition = 'none';
+            currentIndex = nextIndex;
+
+            // Schedule next transition
+            const nextTimeoutId = setTimeout(transitionToNextImage, duration - transition);
+            container.slideshowTimeouts.push(nextTimeoutId);
+        }, transition);
+        container.slideshowTimeouts.push(nextTransitionTimeoutId);
+    }
+
+    // Start the slideshow
+    const initialTimeoutId = setTimeout(transitionToNextImage, images[0].duration || defaultDuration);
+    container.slideshowTimeouts.push(initialTimeoutId);
+}
+
+// Event handlers
+function handleDragStart(e) {
+    // Ensure the target is a card (or traverse up if it's a child element)
+    draggedCard = e.target.closest('.card'); // Find the nearest parent with the class 'card'
+
+    // If for some reason there's no valid card, stop the drag
+    if (!draggedCard) {
+        return;
+    }
+
+    dragSourcePile = draggedCard.parentElement; // Set the source pile
+
+    // Get the index of the dragged card in its pile
+    const cardsInPile = Array.from(dragSourcePile.children);
+    const draggedCardIndex = cardsInPile.indexOf(draggedCard);
+
+    // If dragging multiple cards (sequence), store them
+    draggedCards = cardsInPile.slice(draggedCardIndex);
+
+    // Add dragging class for styling
+    draggedCards.forEach(card => card.classList.add('dragging'));
+}
+
+function handleDragEnd(e) {
+    // Remove dragging class
+    if (draggedCards) {
+        draggedCards.forEach(card => card.classList.remove('dragging'));
+    }
+    draggedCard = null;
+    draggedCards = [];
+    dragSourcePile = null;
+}
+
+function handleDragOver(e) {
+    const dropTargetPile = e.currentTarget;
+    const topCard = dropTargetPile.lastChild;
+
+    // Prevent dropping onto hidden cards
+    if (topCard && topCard.classList.contains('hidden')) {
+        e.preventDefault();
+        return;
+    }
+
+    e.preventDefault(); // Necessary to allow drop
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    const dropTargetPile = e.currentTarget;
+
+    if (isValidMove(draggedCards[0], dropTargetPile)) {
+        // Update z-index and position for the moved cards
+        const startingZIndex = dropTargetPile.children.length;
+
+        if (dropTargetPile.classList.contains('foundation')) {
+            // Handle moving a card to the foundation pile
+            const card = draggedCards[0];
+            dragSourcePile.removeChild(card);
+
+            // Set position to absolute
+            card.style.position = 'absolute';
+            card.style.left = '0px';
+            card.style.top = '0px'; // No overlap in foundation piles
+            card.style.zIndex = startingZIndex;
+            card.style.display = ''; // Ensure the card is visible
+            dropTargetPile.appendChild(card);
+
+            // Hide the previous top card if any
+            if (dropTargetPile.children.length > 1) {
+                const previousCard = dropTargetPile.children[dropTargetPile.children.length - 2];
+                previousCard.style.display = 'none';
+            }
+
+            // Add the 'has-card' class to remove placeholder styling
+            dropTargetPile.classList.add('has-card');
+        } else {
+            // For tableau piles, handle moving multiple cards
+            draggedCards.forEach((card, index) => {
+                dragSourcePile.removeChild(card);
+
+                // Set position to absolute
+                card.style.position = 'absolute';
+                card.style.left = '0px';
+
+                // Calculate the top position based on the pile's overlapping
+                const topPosition = (startingZIndex + index) * (viewportHeight * 0.03); // Use cardOverlap value
+                card.style.top = `${topPosition}px`;
+                card.style.zIndex = startingZIndex + index;
+                card.style.display = ''; // Ensure the card is visible
+                dropTargetPile.appendChild(card);
+            });
         }
 
-        .pile,
-        .stock-pile,
-        .waste-pile,
-        .foundation {
-            position: absolute;
-            width: 14vh;
-            height: 21vh;
+        // Reveal the last card in the source pile if it's hidden
+        if (
+            dragSourcePile.classList.contains('pile') &&
+            dragSourcePile.lastChild &&
+            dragSourcePile.lastChild.classList.contains('hidden')
+        ) {
+            const lastCard = dragSourcePile.lastChild;
+            revealCard(lastCard);
         }
 
-        .pile {
-            position: absolute;
-            width: 14vh;
-            height: 21vh;
+        // If the source was a foundation pile
+        if (dragSourcePile.classList.contains('foundation')) {
+            // Remove the moved card from the foundation pile
+            // If there are cards left, show the new top card
+            if (dragSourcePile.lastChild) {
+                const topCard = dragSourcePile.lastChild;
+                topCard.style.display = '';
+            } else {
+                // If the foundation pile is now empty, remove 'has-card' class
+                dragSourcePile.classList.remove('has-card');
+            }
+        }
+    }
+
+    // Reset drag state
+    handleDragEnd();
+}
+
+// Function to check if the move is valid
+function isValidMove(card, targetPile) {
+    const cardRank = rankOrder[card.dataset.rank];
+    const cardSuit = card.dataset.suit;
+    const cardColor = getColor(cardSuit);
+
+    console.log(`Checking move for card ${card.dataset.rank}${card.dataset.suit}`);
+
+    // If moving to foundation pile
+    if (targetPile.classList.contains('foundation')) {
+        const topCard = targetPile.lastChild;
+
+        if (!topCard) {
+            return cardRank === 1;
+        } else {
+            const topCardRank = rankOrder[topCard.dataset.rank];
+            const topCardSuit = topCard.dataset.suit;
+            return cardSuit === topCardSuit && cardRank === topCardRank + 1;
+        }
+    }
+
+    // If moving to tableau pile
+    if (targetPile.classList.contains('pile')) {
+        const topCard = targetPile.lastChild;
+
+        if (!topCard) {
+            return cardRank === 13;
+        } else if (topCard.classList.contains('hidden')) {
+            return false;
+        } else {
+            const topCardRank = rankOrder[topCard.dataset.rank];
+            const topCardSuit = topCard.dataset.suit;
+            const topCardColor = getColor(topCardSuit);
+            return cardRank === topCardRank - 1 && cardColor !== topCardColor;
+        }
+    }
+
+    return false;
+}
+
+// Helper function to get the color of a suit
+function getColor(suit) {
+    if (suit === '♥' || suit === '♦') {
+        return 'red';
+    } else {
+        return 'black';
+    }
+}
+
+function drawCard(e) {
+    const stockPile = document.querySelector('.stock-pile');
+    const wastePile = document.querySelector('.waste-pile');
+    if (stockPile.lastChild) {
+        const card = stockPile.lastChild;
+        card.classList.remove('hidden');
+        card.draggable = true;
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+        card.addEventListener('click', handleCardClick);
+
+        stockPile.removeChild(card);
+
+        // Reset position and z-index
+        const zIndex = wastePile.children.length;
+        card.style.zIndex = zIndex;
+        card.style.position = 'absolute'; // Ensure absolute positioning
+        card.style.top = `${zIndex * -0.5}px`; // Slight overlap
+
+        // Update the card's content
+        const cardData = {
+            rank: card.dataset.rank,
+            suit: card.dataset.suit,
+        };
+        const cardKey = cardData.rank + cardData.suit;
+        const content = assignedContent[cardKey] || defaultContent;
+
+        // Clear existing content
+        card.innerHTML = '';
+
+        // Add rank and suit overlays
+        const topLeftValue = document.createElement('div');
+        topLeftValue.className = 'card-corner top-left';
+        topLeftValue.textContent = cardData.rank + cardData.suit;
+        card.appendChild(topLeftValue);
+
+        const bottomRightValue = document.createElement('div');
+        bottomRightValue.className = 'card-corner bottom-right';
+        bottomRightValue.textContent = cardData.rank + cardData.suit;
+        card.appendChild(bottomRightValue);
+
+        // Add card images if available
+        if (content.images && content.images.length > 0) {
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'card-image-container';
+            content.images.forEach((image, index) => {
+                const img = document.createElement('img');
+                img.className = 'card-image';
+                img.src = image.src;
+                img.style.opacity = index === 0 ? 1 : 0;
+                imgContainer.appendChild(img);
+            });
+            card.appendChild(imgContainer);
+            startSlideshow(imgContainer, content.images, content.defaultSlideshowDuration, content.defaultTransition);
         }
 
-        .stock-pile,
-        .waste-pile {
-            width: 14vh;
-            height: 21vh;
+        // Add custom text if available
+        if (content.text) {
+            const customText = document.createElement('div');
+            customText.className = 'custom-text';
+
+            if (content.link) {
+                const link = document.createElement('a');
+                link.href = content.link;
+                link.textContent = content.text;
+                link.addEventListener('click', handleLinkClick);
+                customText.appendChild(link);
+            } else {
+                customText.textContent = content.text;
+            }
+
+            // Apply custom text styles
+            const textStyle = { ...defaultContent.textStyle, ...content.textStyle };
+            Object.assign(customText.style, textStyle);
+
+            card.appendChild(customText);
         }
 
-        .stock-pile .card,
-        .waste-pile .card {
-            position: absolute;
-            left: 0;
-            transition: top 0.3s ease;
+        // Ensure the card is absolutely positioned within the waste pile
+        card.style.position = 'absolute';
+        wastePile.appendChild(card);
+    } else {
+        // Reset stock from waste
+        while (wastePile.lastChild) {
+            const card = wastePile.lastChild;
+            card.classList.add('hidden');
+            card.draggable = false;
+            card.removeEventListener('dragstart', handleDragStart);
+            card.removeEventListener('dragend', handleDragEnd);
+            card.removeEventListener('click', handleCardClick);
+            wastePile.removeChild(card);
+            stockPile.appendChild(card);
+        }
+    }
+}
+
+// Handle card clicks to display the enlarged card and adjust z-index of open iframes
+function handleCardClick(e) {
+    const card = e.currentTarget;
+    // Only display enlarged card if it's not hidden
+    if (!card.classList.contains('hidden')) {
+        displayEnlargedCard(card);
+        // Adjust z-index of open iframes to 0
+        document.querySelectorAll('iframe').forEach(iframe => {
+            iframe.style.zIndex = '0';
+        });
+    }
+}
+
+function displayEnlargedCard(card) {
+    const enlargedCardContainer = document.getElementById('enlarged-card');
+    const instructionOverlay = document.getElementById('instruction-overlay');
+    const contentFrame = document.getElementById('content-frame');
+
+    enlargedCardContainer.innerHTML = ''; // Clear previous content
+    enlargedCardContainer.className = ''; // Reset classes
+
+    // Hide the instruction overlay
+    instructionOverlay.style.display = 'none';
+
+    // Copy the card classes
+    enlargedCardContainer.className = '';
+    enlargedCardContainer.classList.add(card.classList.contains('red-card') ? 'red-card' : 'black-card');
+    if (card.classList.contains('hidden')) {
+        enlargedCardContainer.classList.add('hidden');
+    }
+
+    // Set z-index of the enlarged card to 1
+    enlargedCardContainer.style.zIndex = '1';
+
+    const cardRank = card.dataset.rank;
+    const cardSuit = card.dataset.suit;
+    const cardKey = cardRank + cardSuit;
+    const content = assignedContent[cardKey] || defaultContent;
+
+    // Add card images if available
+    if (content.images && content.images.length > 0) {
+        const imgContainer = document.createElement('div');
+        imgContainer.className = 'card-image-container enlarged';
+        content.images.forEach((image, index) => {
+            const img = document.createElement('img');
+            img.className = 'enlarged-card-image';
+            img.src = image.src;
+            img.style.opacity = index === 0 ? 1 : 0;
+            imgContainer.appendChild(img);
+        });
+        enlargedCardContainer.appendChild(imgContainer);
+        startSlideshow(imgContainer, content.images, defaultContent.defaultSlideshowDuration, defaultContent.defaultTransition);
+    }
+
+    // Add rank and suit overlays
+    const topLeftValue = document.createElement('div');
+    topLeftValue.className = 'card-corner top-left enlarged';
+    topLeftValue.textContent = cardRank + cardSuit;
+    enlargedCardContainer.appendChild(topLeftValue);
+
+    const bottomRightValue = document.createElement('div');
+    bottomRightValue.className = 'card-corner bottom-right enlarged';
+    bottomRightValue.textContent = cardRank + cardSuit;
+    enlargedCardContainer.appendChild(bottomRightValue);
+
+    // Add custom text with embedded link if available
+    if (content.text) {
+        const customText = document.createElement('div');
+        customText.className = 'custom-text enlarged';
+
+        if (content.link) {
+            const link = document.createElement('a');
+            link.href = content.link;
+            link.textContent = content.text;
+            link.addEventListener('click', handleLinkClick);
+            customText.appendChild(link);
+        } else {
+            customText.textContent = content.text;
         }
 
-        .card {
-            width: 14vh;
-            height: 21vh;
-            position: relative;
-            /* Change to relative to contain absolutely positioned children */
-            border: 0.2vh solid black;
-            border-radius: 5px;
-            background-color: #fff;
-            overflow: hidden;
+        // Apply custom text styles for enlarged card
+        const textStyle = { ...defaultContent.textStyle, ...content.textStyle };
+        Object.assign(customText.style, {
+            ...textStyle,
+            fontSize: `${parseInt(textStyle.fontSize) * 3}px`, // Increase font size for enlarged card
+            bottom: '40px', // Adjust bottom position for enlarged card
+            maxWidth: '280px' // Adjust max width for enlarged card
+        });
+
+        enlargedCardContainer.appendChild(customText);
+    }
+
+    // Show the enlarged card
+    enlargedCardContainer.style.display = 'block';
+
+    // Add click event listener to the enlarged card
+    enlargedCardContainer.addEventListener('click', () => {
+        console.log('click');
+    });
+}
+
+function moveCard(card, targetPile) {
+    const sourcePile = card.parentElement;
+    sourcePile.removeChild(card);
+
+    // Update positions of remaining cards in the source pile
+    updatePilePositions(sourcePile);
+
+    // Add card to target pile
+    targetPile.appendChild(card);
+
+    // Update positions in the target pile
+    updatePilePositions(targetPile);
+
+    // Update draggable state for cards in both piles
+    updateDraggableState(sourcePile);
+    updateDraggableState(targetPile);
+}
+
+function updatePilePositions(pile) {
+    const cards = Array.from(pile.children);
+    cards.forEach((card, index) => {
+        card.style.zIndex = index;
+        card.style.top = (index * cardOverlap) + 'px';
+    });
+}
+
+function updateDraggableState(pile) {
+    const cards = Array.from(pile.children);
+    cards.forEach((card, index) => {
+        if (index === cards.length - 1) {
+            card.draggable = true;
+            card.classList.remove('hidden');
+        } else {
+            card.draggable = false;
+        }
+    });
+}
+
+function revealCard(card) {
+    card.classList.remove('hidden');
+    card.draggable = true;
+    card.addEventListener('dragstart', handleDragStart);
+    card.addEventListener('dragend', handleDragEnd);
+    card.addEventListener('click', handleCardClick);
+
+    // Update the card's content
+    const cardData = {
+        rank: card.dataset.rank,
+        suit: card.dataset.suit,
+    };
+    const cardKey = cardData.rank + cardData.suit;
+    const content = assignedContent[cardKey] || defaultContent;
+
+    // Clear existing content
+    card.innerHTML = '';
+
+    // Add rank and suit overlays
+    const topLeftValue = document.createElement('div');
+    topLeftValue.className = 'card-corner top-left';
+    topLeftValue.textContent = cardData.rank + cardData.suit;
+    card.appendChild(topLeftValue);
+
+    const bottomRightValue = document.createElement('div');
+    bottomRightValue.className = 'card-corner bottom-right';
+    bottomRightValue.textContent = cardData.rank + cardData.suit;
+    card.appendChild(bottomRightValue);
+
+    // Add card images if available
+    if (content.images && content.images.length > 0) {
+        const imgContainer = document.createElement('div');
+        imgContainer.className = 'card-image-container';
+        content.images.forEach((image, index) => {
+            const img = document.createElement('img');
+            img.className = 'card-image';
+            img.src = image.src;
+            img.style.opacity = index === 0 ? 1 : 0;
+            imgContainer.appendChild(img);
+        });
+        card.appendChild(imgContainer);
+        startSlideshow(imgContainer, content.images, content.defaultSlideshowDuration, content.defaultTransition);
+    }
+
+    // Add custom text if available
+    if (content.text) {
+        const customText = document.createElement('div');
+        customText.className = 'custom-text';
+
+        if (content.link) {
+            const link = document.createElement('a');
+            link.href = content.link;
+            link.textContent = content.text;
+            link.addEventListener('click', handleLinkClick);
+            customText.appendChild(link);
+        } else {
+            customText.textContent = content.text;
         }
 
-        .card.hidden {
-            background-color: #007700;
-            border-color: #007700;/ cursor: pointer;
-            /* background-image: url('https://i.pinimg.com/564x/51/70/ff/5170ffda8f8c80447d04f380babd1cf5.jpg'); */
-            background-image: url('https://i.pinimg.com/564x/51/70/ff/5170ffda8f8c80447d04f380babd1cf5.jpg');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            border: 0.2vh solid black;
+        // Apply custom text styles
+        const textStyle = { ...defaultContent.textStyle, ...content.textStyle };
+        Object.assign(customText.style, textStyle);
+
+        card.appendChild(customText);
+    }
+}
+
+// Update the handleLinkClick function
+function handleLinkClick(event) {
+    event.preventDefault();
+    const link = event.target.href;
+    const contentFrame = document.getElementById('content-frame');
+    const enlargedCardContainer = document.getElementById('enlarged-card');
+    const instructionOverlay = document.getElementById('instruction-overlay');
+    // Show and load the content frame
+    contentFrame.style.display = 'block';
+    contentFrame.src = link;
+    // Change the z-index of the #enlarged-card by multiplying it by -1
+    const enlargedCard = document.getElementById('enlarged-card');
+    enlargedCard.style.zIndex = `${parseInt(enlargedCard.style.zIndex) * -1}`;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const toggleZIndexButton = document.getElementById('toggleZIndex');
+    const closeup = document.getElementById('closeup');
+    let isZIndexNegative = false;
+
+    document.addEventListener('keydown', function (event) {
+        if (event.code === 'Space') {
+            event.preventDefault();
+            toggleZIndexButton.click();
         }
-
-        /* Hide the rank and suit for hidden cards */
-        .card.hidden .card-value {
-            display: none;
+    });
+    toggleZIndexButton.addEventListener('click', function () {
+        document.getElementById('enlarged-card').style.zIndex *= -1;
+        document.querySelectorAll('iframe').forEach(iframe => {
+            iframe.style.zIndex = '0';
+        });
+    });
+    openNewTab.addEventListener('click', function () {
+        const contentFrame = document.getElementById('content-frame');
+        if (contentFrame && contentFrame.src) {
+            window.open(contentFrame.src, '_blank');
         }
+    });
+});
 
-        .foundation {
-            width: 14vh;
-            height: 21vh;
-            position: absolute;
-            border: 2px dashed #fff;
-            border-radius: 5px;
-            background-color: #007700;
-            margin: 0;
-        }
-
-        /* Remove placeholder styling when foundation has a card */
-        .foundation.has-card {
-            border: none;
-            background-color: transparent;
-        }
-
-        /* Style for the rank and suit in the upper-left corner */
-        .card-corner {
-            position: absolute;
-            font-size: 0.85vw;
-            font-weight: bold;
-            background: radial-gradient(ellipse, white, transparent);
-            padding: 2px 5px;
-            border-radius: 15px;
-            z-index: 2;
-            /* Ensure this is higher than the image z-index */
-            /* Ensure it's above the card image */
-        }
-
-        /* Apply color to card corners for red and black cards */
-        .card.red-card .card-corner,
-        #enlarged-card.red-card .card-corner {
-            color: red;
-        }
-
-        .card.black-card .card-corner,
-        #enlarged-card.black-card .card-corner {
-            color: black;
-        }
-
-        .card-corner.top-left {
-            top: 2px;
-            left: 2px;
-        }
-
-        .card-corner.bottom-right {
-            bottom: 2px;
-            right: 2px;
-            transform: rotate(180deg);
-        }
-
-        /* Hide the card corners when the card is face down */
-        .card.hidden .card-corner {
-            display: none;
-        }
-
-        /* Visual feedback during dragging */
-        .dragging {
-            opacity: 0.5;
-        }
-
-        /* Close-up area on the right */
-        #close-up-area {
-            width: 40%;
-            height: 100%;
-            margin-top: 20px;
-            margin-left: 20px;
-            position: relative;
-        }
-
-        #enlarged-card {
-            width: 70%;
-            height: 84%;
-            position: absolute;
-            display: none;
-            border: 0.3vh solid black;
-            border-radius: 5px;
-            /* Increased border-radius for rounder edges */
-            background-color: #fff;
-            color: black;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -55%);
-        }
-
-        /* Instruction overlay */
-        #instruction-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 3vh;
-            text-align: center;
-            color: white;
-            padding: 20px;
-            box-sizing: border-box;
-            pointer-events: none;
-            /* This makes the overlay non-interactive */
-            z-index: -10;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -55%);
-        }
-
-        /* Enlarged card corner styles */
-        #enlarged-card .card-corner.enlarged {
-            font-size: 4vh;
-            padding: 5px 15px;
-            border-radius: 35px;
-        }
-
-        #enlarged-card .card-corner.top-left.enlarged {
-            top: 1vh;
-            left: 1vh;
-        }
-
-        #enlarged-card .card-corner.bottom-right.enlarged {
-            bottom: 1vh;
-            right: 1vh;
-            transform: rotate(180deg);
-        }
-
-        /* Card images container */
-        .card-image-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: 1;
-            /* Ensure this is lower than the card-corner z-index */
-        }
-
-        /* Card images on the game board */
-        .card-image {
-            /* Removed opacity and transition properties */
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: 1;
-        }
-
-        .card-image.active {
-            opacity: 1;
-        }
-
-        /* Enlarged card image container */
-        .card-image-container.enlarged {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Enlarged card image */
-        .enlarged-card-image {
-            /* Removed opacity and transition properties */
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .enlarged-card-image.active {
-            opacity: 1;
-        }
-
-        /* Small text for cards on the board */
-        .custom-text {
-            position: absolute;
-            bottom: 20px;
-            /* Position at the bottom */
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 8px;
-            text-align: center;
-            color: black;
-            background: radial-gradient(ellipse at center, white, transparent);
-            padding: 2px 5px;
-            border-radius: 10px;
-            z-index: 2;
-            /* Ensure this is higher than the image z-index */
-            /* Ensure it's above the image and other elements */
-            width: 90%;
-            max-width: 70px;
-        }
-
-        /* Larger text for enlarged card */
-        .custom-text.enlarged {
-            bottom: 20px;
-            font-size: 26px;
-            padding: 5px 10px;
-            max-width: 280px;
-            /* Adjust as needed */
-            z-index: 3;
-        }
-
-        :root {
-            --card-overlap: 20px;
-            /* Adjust this value as needed */
-        }
-
-        /* Override default link styles */
-        .custom-text a {
-            color: inherit;
-            text-decoration: inherit;
-            font-style: inherit;
-            font-weight: inherit;
-        }
-
-        #custom-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -10000;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }
-
-        #toggleZIndex {
-            position: absolute;
-            bottom: 5%;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        #openNewTab {
-            position: absolute;
-            bottom: 5%;
-            left: 75%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-    </style>
-</head>
-
-<body>
-    <div id="game-container">
-        <div id="custom-background"></div>
-        <div id="game-board">
-            <!-- Game board will be populated by JavaScript -->
-        </div>
-        <div id="close-up-area">
-            <!-- Enlarged card will be displayed here -->
-            <div id="enlarged-card"></div>
-            <button id="toggleZIndex">Toggle Z-Index</button>
-            <button id="openNewTab">Open in New Tab</button>
-            <div id="instruction-overlay">Click on any card for close-up</div>
-        </div>
-    </div>
-    <script type="module" src="solitaire.js"></script>
-</body>
-
-</html>
+initGame();
